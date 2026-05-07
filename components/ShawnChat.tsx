@@ -1,31 +1,29 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { sendMessage } from '@/lib/shawn'
-
-interface Message {
-  role: 'user' | 'shawn'
-  text: string
-}
+import { usePathname } from 'next/navigation'
+import { useShawn } from '@/components/ShawnProvider'
+import ShawnCharacter from '@/components/ShawnCharacter'
 
 export default function ShawnChat() {
+  const pathname = usePathname()
+  const { messages, loading, send } = useShawn()
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // ShawnStrip handles home — float button only on other pages
+  if (pathname === '/') return null
 
   async function handleSend() {
     const text = input.trim()
-    if (!text || loading) return
+    if (!text || sending) return
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', text }])
-    setLoading(true)
+    setSending(true)
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-
-    const response = await sendMessage(text)
-    setMessages(prev => [...prev, { role: 'shawn', text: response }])
-    setLoading(false)
+    await send(text)
+    setSending(false)
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
@@ -36,19 +34,21 @@ export default function ShawnChat() {
     }
   }
 
+  const characterState = loading ? 'working' : 'idle'
+
   return (
     <>
       {open && (
         <div
-          className="fixed bottom-20 right-6 flex flex-col rounded-xl border border-zinc-800 shadow-2xl"
-          style={{ width: '400px', height: '500px', backgroundColor: '#1a1a1a', zIndex: 50 }}
+          className="fixed bottom-20 right-6 flex flex-col rounded-xl border border-border bg-card shadow-2xl"
+          style={{ width: '400px', height: '500px', zIndex: 50 }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-            <span className="text-zinc-100 font-medium">Shawn</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="text-foreground font-medium">Shawn</span>
             <button
               onClick={() => setOpen(false)}
-              className="text-zinc-500 hover:text-zinc-300 text-lg leading-none"
+              className="text-muted-foreground hover:text-foreground text-lg leading-none transition-colors"
               aria-label="Close chat"
             >
               ×
@@ -57,8 +57,8 @@ export default function ShawnChat() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
-            {messages.length === 0 && (
-              <p className="text-zinc-600 text-sm text-center mt-4">
+            {messages.length === 0 && !loading && (
+              <p className="text-muted-foreground text-sm text-center mt-4">
                 Say something to Shawn...
               </p>
             )}
@@ -67,15 +67,15 @@ export default function ShawnChat() {
                 key={i}
                 className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${
                   msg.role === 'user'
-                    ? 'self-end text-zinc-100 bg-zinc-700'
-                    : 'self-start text-zinc-300 bg-zinc-800'
+                    ? 'self-end text-foreground bg-muted ml-auto'
+                    : 'self-start text-foreground bg-card border border-border'
                 }`}
               >
                 {msg.text}
               </div>
             ))}
-            {loading && (
-              <div className="self-start px-3 py-2 rounded-lg text-sm text-zinc-600 bg-zinc-800">
+            {(loading || sending) && (
+              <div className="self-start px-3 py-2 rounded-lg text-sm text-muted-foreground bg-card border border-border">
                 thinking...
               </div>
             )}
@@ -83,19 +83,19 @@ export default function ShawnChat() {
           </div>
 
           {/* Input */}
-          <div className="flex items-center gap-2 px-3 py-3 border-t border-zinc-800">
+          <div className="flex items-center gap-2 px-3 py-3 border-t border-border">
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
               placeholder="Message Shawn..."
-              className="flex-1 bg-zinc-800 text-zinc-100 text-sm rounded-lg px-3 py-2 outline-none placeholder:text-zinc-600"
+              className="flex-1 bg-muted border border-border text-foreground text-sm rounded-lg px-3 py-2 outline-none placeholder:text-muted-foreground/50"
             />
             <button
               onClick={handleSend}
-              disabled={loading || !input.trim()}
+              disabled={sending || !input.trim()}
               style={{ backgroundColor: '#CC785C' }}
-              className="px-3 py-2 rounded-lg text-sm text-white font-medium disabled:opacity-40"
+              className="px-3 py-2 rounded-lg text-sm text-white font-medium disabled:opacity-40 transition-opacity"
             >
               Send
             </button>
@@ -103,15 +103,17 @@ export default function ShawnChat() {
         </div>
       )}
 
-      {/* Toggle button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ backgroundColor: '#CC785C', zIndex: 50 }}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-full text-white text-xl font-bold shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
-        aria-label="Open Shawn chat"
+      {/* Pixel art character button */}
+      <div
+        className="fixed bottom-6 right-6"
+        style={{ zIndex: 50 }}
       >
-        S
-      </button>
+        <ShawnCharacter
+          state={characterState}
+          size="md"
+          onClick={() => setOpen(o => !o)}
+        />
+      </div>
     </>
   )
 }

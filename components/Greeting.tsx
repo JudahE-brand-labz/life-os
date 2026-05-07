@@ -31,11 +31,11 @@ export default function Greeting() {
 
   return (
     <div>
-      <h1 className="text-3xl font-semibold text-zinc-100">
+      <h1 className="text-3xl font-semibold text-foreground">
         {greeting},{' '}
         <span style={{ color: '#CC785C' }}>Judah</span>
       </h1>
-      <p className="mt-1 text-zinc-400 text-base">{date}</p>
+      <p className="mt-1 text-muted-foreground text-base">{date}</p>
     </div>
   )
 }
