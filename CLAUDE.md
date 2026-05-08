@@ -13,7 +13,7 @@ Full design blueprint is in the Obsidian vault:
 
 ```bash
 # Terminal 1 — Shawn server
-cd ~/Projects/shawn && npm run serve
+cd ~/Projects/shawn && npx tsx src/server.ts
 
 # Terminal 2 — Life OS
 cd ~/Projects/life.os && npm run dev
@@ -28,9 +28,20 @@ Open http://localhost:3000
 
 **Backend (Shawn server)**
 - Express server on `:4242` (`/Users/judahevans/Projects/shawn/src/server.ts`)
-- `POST /relay` → fetches Life OS state (30s TTL cache), injects tasks/habits/streaks into Shawn's context via `systemAppend`, processes message, strips `[LOG:{...}]` markers, routes writes to Life OS API or direct Supabase, returns clean text
+- `POST /relay` → fetches Life OS state (30s TTL cache), **prepends state as `[Life OS State]...[END STATE]` block to each message** (not systemAppend — `--resume` was suppressing systemAppend), processes message, strips `[LOG:{...}]` markers, routes writes to Life OS API or direct Supabase, returns clean text. Session saves only the raw user message, not the enriched one.
 - `GET /status` → returns session info
-- Cache invalidated after any write (when response contains `[LOG:`)
+- Cache invalidated immediately after any write (when response contains `[LOG:`)
+- State format injected per message:
+  ```
+  [Life OS State]
+  Tasks:
+    - [uuid] ✓/○ task content (max 80 chars)
+  Habits:
+    - domain: done/pending
+  Streaks:
+    - domain: N days
+  [END STATE]
+  ```
 
 **Shawn ↔ Life OS write protocol**
 Shawn writes via `[LOG:{...}]` markers (NOT curl — Bash is blocked in 'chat' mode):
@@ -193,4 +204,4 @@ Shawn uses `[LOG:{...}]` markers, not direct API calls or curl. The Shawn server
 - Domain whitelist in `/api/habits/log`: only ['fitness', 'hebrew', 'writing'] are valid
 - `sort_order` reorder: `sortPending` boolean disables ALL ↑↓ buttons while any mutation is in-flight
 - `RightColumnWidget` reads localStorage only in `useEffect` — avoids SSR hydration mismatch
-- Shawn server state cache TTL is 30s; invalidated immediately after any `[LOG:]` write
+- Shawn server state cache TTL is 30s; invalidated immediately after any `[LOG:]` write. State is prepended to each message as a block — NOT via systemAppend (which was suppressed by `--resume`)
